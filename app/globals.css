@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+:root {
+  --background: #F8F7FF;
+  --purple: #9381FF;
+  --lila: #B8B8FF;
+  --beige: #FFEEDD;
+  --orange: #FFD8BE;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-purple: var(--purple);
+  --color-lila: var(--lila);
+  --color-beige: var(--beige);
+  --color-orange: var(--orange);
+  --color-foreground: #1E1E1E;
+  --font-body: var(--font-work-sans);
+  --font-heading: var(--font-manrope);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body);
+}
