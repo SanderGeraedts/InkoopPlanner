@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Work_Sans, Manrope } from "next/font/google";
 import "./globals.css";
+import Header from "./components/Header";
 
 const workSans = Work_Sans({
   variable: "--font-work-sans",
@@ -27,6 +28,7 @@ export default function RootLayout({
       <body
         className={`${workSans.variable} ${manrope.variable} antialiased`}
       >
+        <Header />
         {children}
       </body>
     </html>
