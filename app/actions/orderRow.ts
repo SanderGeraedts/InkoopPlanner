@@ -17,7 +17,6 @@ export async function saveOrderRows(orderListId: string, productQuantities: Prod
 
     // Separate products to create/update and delete
     const productsToUpdate = productQuantities.filter(pq => pq.quantity > 0);
-    const existingProductIds = new Set(existingOrderRows.map(or => or.productId));
     const newProductIds = new Set(productsToUpdate.map(pq => pq.productId));
 
     // Delete order rows for products with quantity <= 0
