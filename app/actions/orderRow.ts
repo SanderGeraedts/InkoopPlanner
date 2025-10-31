@@ -1,6 +1,7 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
+import { OrderRow } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
 interface ProductQuantity {
@@ -21,8 +22,8 @@ export async function saveOrderRows(orderListId: string, productQuantities: Prod
 
     // Delete order rows for products with quantity <= 0
     const productsToDelete = existingOrderRows
-      .filter(or => !newProductIds.has(or.productId))
-      .map(or => or.id);
+      .filter((or: OrderRow) => !newProductIds.has(or.productId))
+      .map((or: OrderRow) => or.id);
 
     if (productsToDelete.length > 0) {
       await prisma.orderRow.deleteMany({
