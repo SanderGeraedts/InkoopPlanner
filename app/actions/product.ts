@@ -1,7 +1,6 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
-import { ProductCategory } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
 export async function addProductToExtras(name: string) {
