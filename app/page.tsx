@@ -1,6 +1,9 @@
-import { prisma } from '@/lib/prisma';
+'use client';
+
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import DeleteOrderButton from './components/DeleteOrderButton';
+import * as db from '@/lib/db';
 
 function formatDate(date: Date | string): string {
   const dateObj = typeof date === 'string' ? new Date(date) : date;
@@ -13,25 +16,34 @@ function formatDate(date: Date | string): string {
   return `${dayName} ${day} ${monthName} '${year}`;
 }
 
-export default async function Home() {
-  const [orders] = await Promise.all([
-    prisma.order.findMany({
-      orderBy: {
-        date: 'desc',
-      },
-      include: {
-        orderLists: {
-          include: {
-            orderRows: true,
-          },
-        },
-      },
-    }),
-  ]);
+export default function Home() {
+  const [orders, setOrders] = useState<db.Order[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const dbContent = {
-    orders
-  };
+  useEffect(() => {
+    loadOrders();
+  }, []);
+
+  async function loadOrders() {
+    setIsLoading(true);
+    try {
+      const allOrders = await db.getAllOrders();
+      setOrders(allOrders);
+    } catch (error) {
+      console.error('Error loading orders:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <main className="flex flex-col items-center p-8">
+        <h1 className="text-4xl font-bold font-heading text-purple mb-8">Bestellingen</h1>
+        <p className="text-lg text-foreground/60">Laden...</p>
+      </main>
+    );
+  }
 
   return (
     <main className="flex flex-col items-center p-8">
@@ -60,7 +72,7 @@ export default async function Home() {
               >
                 Overzicht
               </Link>
-              <DeleteOrderButton orderId={order.id} />
+              <DeleteOrderButton orderId={order.id} onDelete={loadOrders} />
             </div>
           ))
         )}

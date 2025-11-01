@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { saveOrderRows, getPreviousOrderList, getNextOrderList, createOrderList } from '@/app/actions/orderRow';
+import * as db from '@/lib/db';
 
 interface OrderActionsProps {
   orderId: string;
@@ -28,15 +28,26 @@ export default function OrderActions({ orderId, orderListId, quantities, onSave,
         quantity: quantity as number,
       }));
 
-    const result = await saveOrderRows(orderListId, productQuantities);
-    if (result.success) {
+    try {
+      // Get existing order rows for this order list
+      const existingRows = await db.getOrderRowsByOrderListId(orderListId);
+      
+      // Delete existing rows
+      await Promise.all(existingRows.map(row => db.deleteOrderRow(row.id)));
+      
+      // Create new rows for products with quantities > 0
+      await Promise.all(productQuantities.map(({ productId, quantity }) =>
+        db.createOrderRow({
+          orderListId,
+          productId,
+          quantity,
+        })
+      ));
+      
       onSave();
-      if (!skipRefresh) {
-        router.refresh();
-      }
       return true;
-    } else {
-      console.error('Failed to save order rows');
+    } catch (error) {
+      console.error('Failed to save order rows:', error);
       return false;
     }
   };
@@ -58,10 +69,17 @@ export default function OrderActions({ orderId, orderListId, quantities, onSave,
       // Save current order list first
       await handleSave();
       
-      // Get previous order list
-      const result = await getPreviousOrderList(orderId, orderListId);
-      if (result?.success && result.orderListId) {
-        router.push(`/bestellingen/${orderId}?orderListId=${result.orderListId}`);
+      // Get all order lists sorted by createdAt
+      const orderLists = await db.getOrderListsByOrderId(orderId);
+      const sortedLists = orderLists.sort((a, b) => 
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      );
+      
+      // Find current index
+      const currentIndex = sortedLists.findIndex(ol => ol.id === orderListId);
+      if (currentIndex > 0) {
+        const previousOrderList = sortedLists[currentIndex - 1];
+        router.push(`/bestellingen/${orderId}?orderListId=${previousOrderList.id}`);
       } else {
         alert('Geen vorige bestellijst gevonden');
       }
@@ -90,10 +108,17 @@ export default function OrderActions({ orderId, orderListId, quantities, onSave,
       // Save current order list first
       await handleSave();
       
-      // Get next order list
-      const result = await getNextOrderList(orderId, orderListId);
-      if (result?.success && result.orderListId) {
-        router.push(`/bestellingen/${orderId}?orderListId=${result.orderListId}`);
+      // Get all order lists sorted by createdAt
+      const orderLists = await db.getOrderListsByOrderId(orderId);
+      const sortedLists = orderLists.sort((a, b) => 
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      );
+      
+      // Find current index
+      const currentIndex = sortedLists.findIndex(ol => ol.id === orderListId);
+      if (currentIndex < sortedLists.length - 1) {
+        const nextOrderList = sortedLists[currentIndex + 1];
+        router.push(`/bestellingen/${orderId}?orderListId=${nextOrderList.id}`);
       } else {
         alert('Geen volgende bestellijst gevonden');
       }
@@ -111,12 +136,8 @@ export default function OrderActions({ orderId, orderListId, quantities, onSave,
       await handleSave();
       
       // Create new order list
-      const result = await createOrderList(orderId);
-      if (result.success && result.orderListId) {
-        router.push(`/bestellingen/${orderId}?orderListId=${result.orderListId}`);
-      } else {
-        console.error('Failed to create new order list');
-      }
+      const newOrderList = await db.createOrderList({ orderId });
+      router.push(`/bestellingen/${orderId}?orderListId=${newOrderList.id}`);
     } catch (error) {
       console.error('Error creating new order list:', error);
     } finally {

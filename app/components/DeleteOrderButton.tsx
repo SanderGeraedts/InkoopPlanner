@@ -1,15 +1,14 @@
 'use client';
 
-import { deleteOrder } from '@/app/actions/order';
-import { useRouter } from 'next/navigation';
+import * as db from '@/lib/db';
 import { useState } from 'react';
 
 interface DeleteOrderButtonProps {
   orderId: string;
+  onDelete?: () => void;
 }
 
-export default function DeleteOrderButton({ orderId }: DeleteOrderButtonProps) {
-  const router = useRouter();
+export default function DeleteOrderButton({ orderId, onDelete }: DeleteOrderButtonProps) {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const handleDelete = async (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -22,12 +21,9 @@ export default function DeleteOrderButton({ orderId }: DeleteOrderButtonProps) {
 
     setIsDeleting(true);
     try {
-      const result = await deleteOrder(orderId);
-      if (result.success) {
-        router.refresh();
-      } else {
-        console.error('Failed to delete order');
-        setIsDeleting(false);
+      await db.deleteOrder(orderId);
+      if (onDelete) {
+        onDelete();
       }
     } catch (error) {
       console.error('Error deleting order:', error);

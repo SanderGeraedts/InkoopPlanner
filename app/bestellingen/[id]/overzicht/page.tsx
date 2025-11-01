@@ -1,27 +1,30 @@
-import { prisma } from '@/lib/prisma';
-import { ProductCategory } from '@prisma/client';
-import Link from 'next/link';
+'use client';
 
-// Map Prisma category enum to display names
+import * as db from '@/lib/db';
+import { ProductCategory } from '@/types';
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
+
+// Map category enum to display names
 const categoryDisplayNames: Record<ProductCategory, string> = {
-  Drinken: 'Drinken',
-  Brood_en_Beleg: 'Brood en Beleg',
-  Tussendoor: 'Tussendoor',
-  Aanvullend_beperkt: 'Aanvullend Beperkt',
-  Groenten_en_Fruit: 'Groenten en Fruit',
-  Overigen_producten: 'Overige Producten',
-  Extras: 'Extra\'s',
+  [ProductCategory.Drinken]: 'Drinken',
+  [ProductCategory.Brood_en_Beleg]: 'Brood en Beleg',
+  [ProductCategory.Tussendoor]: 'Tussendoor',
+  [ProductCategory.Aanvullend_beperkt]: 'Aanvullend Beperkt',
+  [ProductCategory.Groenten_en_Fruit]: 'Groenten en Fruit',
+  [ProductCategory.Overigen_producten]: 'Overige Producten',
+  [ProductCategory.Extras]: 'Extra\'s',
 };
 
 // Define category order
 const categoryOrder: ProductCategory[] = [
-  'Drinken',
-  'Brood_en_Beleg',
-  'Tussendoor',
-  'Aanvullend_beperkt',
-  'Groenten_en_Fruit',
-  'Overigen_producten',
-  'Extras',
+  ProductCategory.Drinken,
+  ProductCategory.Brood_en_Beleg,
+  ProductCategory.Tussendoor,
+  ProductCategory.Aanvullend_beperkt,
+  ProductCategory.Groenten_en_Fruit,
+  ProductCategory.Overigen_producten,
+  ProductCategory.Extras,
 ];
 
 interface PageProps {
@@ -41,60 +44,100 @@ function formatDate(date: Date | string): string {
   return `${dayName} ${day} ${monthName} '${year}`;
 }
 
-export default async function OrderOverview({ params }: PageProps) {
-  const { id } = await params;
-  
-  // Fetch order with all its order lists and order rows
-  const order = await prisma.order.findUnique({
-    where: { id },
-    include: {
-      orderLists: {
-        include: {
-          orderRows: {
-            include: {
-              product: true,
-            },
-          },
-        },
-      },
-    },
-  });
+export default function OrderOverview({ params }: PageProps) {
+  const [orderId, setOrderId] = useState<string | null>(null);
+  const [order, setOrder] = useState<db.Order | null>(null);
+  const [productsByCategory, setProductsByCategory] = useState<Record<ProductCategory, Array<{ product: db.Product; quantity: number }>>>({} as any);
+  const [totalProducts, setTotalProducts] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  if (!order) {
-    throw new Error('Order not found');
-  }
+  useEffect(() => {
+    async function loadData() {
+      setIsLoading(true);
+      const resolvedParams = await params;
+      const id = resolvedParams.id;
+      setOrderId(id);
 
-  // Aggregate quantities by product across all order lists
-  const productTotals = new Map<string, { product: any; quantity: number }>();
-  
-  order.orderLists.forEach(orderList => {
-    orderList.orderRows.forEach(orderRow => {
-      const existing = productTotals.get(orderRow.productId);
-      if (existing) {
-        existing.quantity += orderRow.quantity;
-      } else {
-        productTotals.set(orderRow.productId, {
-          product: orderRow.product,
-          quantity: orderRow.quantity,
+      // Fetch order
+      const orderData = await db.getOrderById(id);
+      if (!orderData) {
+        console.error('Order not found:', id);
+        setError('Bestelling niet gevonden');
+        setIsLoading(false);
+        return;
+      }
+      setOrder(orderData);
+
+      // Fetch all order lists for this order
+      const orderLists = await db.getOrderListsByOrderId(id);
+      
+      // Fetch all products (we'll need them for display)
+      const allProducts = await db.getAllProducts();
+      const productMap = new Map(allProducts.map(p => [p.id, p]));
+
+      // Aggregate quantities by product across all order lists
+      const productTotals = new Map<string, { product: db.Product; quantity: number }>();
+      
+      for (const orderList of orderLists) {
+        const orderRows = await db.getOrderRowsByOrderListId(orderList.id);
+        orderRows.forEach(orderRow => {
+          const existing = productTotals.get(orderRow.productId);
+          const product = productMap.get(orderRow.productId);
+          if (!product) return;
+          
+          if (existing) {
+            existing.quantity += orderRow.quantity;
+          } else {
+            productTotals.set(orderRow.productId, {
+              product,
+              quantity: orderRow.quantity,
+            });
+          }
         });
       }
-    });
-  });
 
-  // Group products by category
-  const productsByCategory: Record<ProductCategory, Array<{ product: any; quantity: number }>> = {} as any;
-  
-  categoryOrder.forEach(category => {
-    productsByCategory[category] = [];
-  });
+      // Group products by category
+      const grouped: Record<ProductCategory, Array<{ product: db.Product; quantity: number }>> = {} as any;
+      
+      categoryOrder.forEach(category => {
+        grouped[category] = [];
+      });
 
-  productTotals.forEach(({ product, quantity }) => {
-    const category = product.category as ProductCategory;
-    if (!productsByCategory[category]) {
-      productsByCategory[category] = [];
+      productTotals.forEach(({ product, quantity }) => {
+        const category = product.category;
+        if (!grouped[category]) {
+          grouped[category] = [];
+        }
+        grouped[category].push({ product, quantity });
+      });
+
+      setProductsByCategory(grouped);
+      setTotalProducts(productTotals.size);
+      setIsLoading(false);
     }
-    productsByCategory[category].push({ product, quantity });
-  });
+
+    loadData();
+  }, [params]);
+
+  if (error) {
+    return (
+      <main className="flex min-h-screen flex-col items-center justify-center">
+        <div className="text-red-600 text-xl">{error}</div>
+        <a href="/" className="mt-4 px-6 py-2 bg-purple text-white rounded-md hover:bg-lila transition-colors">
+          Terug naar overzicht
+        </a>
+      </main>
+    );
+  }
+
+  if (isLoading || !order || !orderId) {
+    return (
+      <main className="flex min-h-screen flex-col items-center justify-center">
+        <div className="text-purple">Laden...</div>
+      </main>
+    );
+  }
 
   return (
     <main className="flex min-h-screen flex-col items-center p-4 md:p-8">
@@ -133,7 +176,7 @@ export default async function OrderOverview({ params }: PageProps) {
           );
         })}
         
-        {Array.from(productTotals.values()).length === 0 && (
+        {totalProducts === 0 && (
           <div className="bg-white rounded-lg shadow-md p-8 text-center">
             <p className="text-lg text-foreground/60">Geen producten toegevoegd aan deze bestelling</p>
           </div>
@@ -142,7 +185,7 @@ export default async function OrderOverview({ params }: PageProps) {
 
       <div className="w-full mt-8 flex md:justify-center md:gap-4">
         <Link
-          href={`/bestellingen/${id}`}
+          href={`/bestellingen/${orderId}`}
           className="flex-1 md:flex-none px-6 py-3 bg-beige text-foreground md:rounded-md hover:bg-orange transition-colors text-center"
         >
           Terug naar bestelling

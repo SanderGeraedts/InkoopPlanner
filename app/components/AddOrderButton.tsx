@@ -1,6 +1,6 @@
 'use client';
 
-import { createOrder } from '@/app/actions/order';
+import * as db from '@/lib/db';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
@@ -11,15 +11,12 @@ export default function AddOrderButton() {
   const handleCreateOrder = async () => {
     setIsLoading(true);
     try {
-      const result = await createOrder();
-        setIsLoading(false);
-      if (result.success && result.orderId) {
-        router.push(`/bestellingen/${result.orderId}`);
-      } else {
-        console.error('Failed to create order');
-      }
+      const order = await db.createOrder({ date: new Date() });
+      setIsLoading(false);
+      router.push(`/bestellingen/${order.id}`);
     } catch (error) {
       console.error('Error creating order:', error);
+      setIsLoading(false);
     }
   };
 

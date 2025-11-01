@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { Product, ProductCategory } from '@prisma/client';
+import { Product, ProductCategory } from '@/lib/db';
 import CategoryAccordion from './CategoryAccordion';
 import OrderActions from '@/app/components/OrderActions';
 
@@ -14,6 +14,7 @@ interface OrderPageClientProps {
   categoryDisplayNames: Record<ProductCategory, string>;
   isFirstOrderList: boolean;
   isLastOrderList: boolean;
+  onProductsChange: () => void;
 }
 
 export default function OrderPageClient({
@@ -25,6 +26,7 @@ export default function OrderPageClient({
   categoryDisplayNames,
   isFirstOrderList,
   isLastOrderList,
+  onProductsChange,
 }: OrderPageClientProps) {
   const [quantities, setQuantities] = useState<Record<string, number>>(initialQuantities);
   const [isSaved, setIsSaved] = useState(false);
@@ -120,6 +122,7 @@ export default function OrderPageClient({
               orderId={orderId}
               initialQuantities={quantities}
               onQuantityChange={handleQuantityChange}
+              onProductsChange={onProductsChange}
             />
           );
         })}

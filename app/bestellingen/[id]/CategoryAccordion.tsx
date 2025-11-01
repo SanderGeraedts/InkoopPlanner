@@ -1,9 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Product } from '@prisma/client';
-import { addProductToExtras, deleteProduct } from '@/app/actions/product';
-import { useRouter } from 'next/navigation';
+import { Product, ProductCategory } from '@/lib/db';
+import * as db from '@/lib/db';
 import QuantityControl from '@/app/components/QuantityControl';
 
 interface CategoryAccordionProps {
@@ -15,13 +14,13 @@ interface CategoryAccordionProps {
   orderId: string;
   initialQuantities: Record<string, number>;
   onQuantityChange: (productId: string, quantity: number) => void;
+  onProductsChange?: () => void; // Callback to refresh product list
 }
 
-export default function CategoryAccordion({ category, products, isOpen, onToggle, isExtras = false, orderId, initialQuantities, onQuantityChange }: CategoryAccordionProps) {
+export default function CategoryAccordion({ category, products, isOpen, onToggle, isExtras = false, orderId, initialQuantities, onQuantityChange, onProductsChange }: CategoryAccordionProps) {
   const [newProductName, setNewProductName] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
-  const router = useRouter();
 
   // Always show Extras category, even if empty
   if (!isExtras && products.length === 0) {
@@ -34,13 +33,13 @@ export default function CategoryAccordion({ category, products, isOpen, onToggle
 
     setIsAdding(true);
     try {
-      const result = await addProductToExtras(newProductName.trim());
-      if (result.success) {
-        setNewProductName('');
-        router.refresh();
-      } else {
-        console.error('Failed to add product');
-      }
+      await db.createProduct({
+        name: newProductName.trim(),
+        category: ProductCategory.Extras,
+        image: null,
+      });
+      setNewProductName('');
+      if (onProductsChange) onProductsChange();
     } catch (error) {
       console.error('Error adding product:', error);
     } finally {
@@ -58,17 +57,8 @@ export default function CategoryAccordion({ category, products, isOpen, onToggle
 
     setDeletingIds(prev => new Set(prev).add(productId));
     try {
-      const result = await deleteProduct(productId);
-      if (result.success) {
-        router.refresh();
-      } else {
-        console.error('Failed to delete product');
-        setDeletingIds(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(productId);
-          return newSet;
-        });
-      }
+      await db.deleteProduct(productId);
+      if (onProductsChange) onProductsChange();
     } catch (error) {
       console.error('Error deleting product:', error);
       setDeletingIds(prev => {

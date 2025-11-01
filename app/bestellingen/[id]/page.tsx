@@ -1,9 +1,12 @@
-import { prisma } from '@/lib/prisma';
-import { ProductCategory } from '@prisma/client';
-import OrderPageClient from './OrderPageClient';
-import { isFirstOrderList, isLastOrderList } from '@/app/actions/orderRow';
+'use client';
 
-// Map Prisma category enum to display names
+import * as db from '@/lib/db';
+import { ProductCategory } from '@/types';
+import OrderPageClient from './OrderPageClient';
+import { useEffect, useState, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
+
+// Map category enum to display names
 const categoryDisplayNames: Record<ProductCategory, string> = {
   Drinken: 'Drinken',
   Brood_en_Beleg: 'Brood en Beleg',
@@ -16,118 +19,142 @@ const categoryDisplayNames: Record<ProductCategory, string> = {
 
 // Define category order
 const categoryOrder: ProductCategory[] = [
-  'Drinken',
-  'Brood_en_Beleg',
-  'Tussendoor',
-  'Aanvullend_beperkt',
-  'Groenten_en_Fruit',
-  'Overigen_producten',
-  'Extras',
+  ProductCategory.Drinken,
+  ProductCategory.Brood_en_Beleg,
+  ProductCategory.Tussendoor,
+  ProductCategory.Aanvullend_beperkt,
+  ProductCategory.Groenten_en_Fruit,
+  ProductCategory.Overigen_producten,
+  ProductCategory.Extras,
 ];
 
 interface PageProps {
   params: Promise<{
     id: string;
   }>;
-  searchParams: Promise<{
-    orderListId?: string;
-  }>;
 }
 
-export default async function NewOrder({ params, searchParams }: PageProps) {
-  const { id } = await params;
-  const { orderListId } = await searchParams;
-  
-  // Fetch order with its order lists
-  const order = await prisma.order.findUnique({
-    where: { id },
-    include: {
-      orderLists: {
-        include: {
-          orderRows: {
-            include: {
-              product: true,
-            },
-          },
-        },
-        orderBy: {
-          createdAt: 'asc',
-        },
-      },
-    },
-  });
+export default function NewOrder({ params }: PageProps) {
+  const [orderId, setOrderId] = useState<string | null>(null);
+  const [currentOrderList, setCurrentOrderList] = useState<db.OrderList | null>(null);
+  const [initialQuantities, setInitialQuantities] = useState<Record<string, number>>({});
+  const [productsByCategory, setProductsByCategory] = useState<Record<ProductCategory, db.Product[]>>({} as Record<ProductCategory, db.Product[]>);
+  const [isFirstOrderList, setIsFirstOrderList] = useState(false);
+  const [isLastOrderList, setIsLastOrderList] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const searchParams = useSearchParams();
+  const orderListId = searchParams.get('orderListId');
 
-  if (!order) {
-    throw new Error('Order not found');
-  }
+  const handleProductsChange = useCallback(() => {
+    setRefreshTrigger(prev => prev + 1);
+  }, []);
 
-  // Get or create the current order list
-  let currentOrderList = order.orderLists.find(ol => ol.id === orderListId);
-  
-  // If no orderListId provided or not found, use the first one or create one
-  if (!currentOrderList) {
-    if (order.orderLists.length > 0) {
-      currentOrderList = order.orderLists[0];
-    } else {
-      // Create a new order list if none exist
-      currentOrderList = await prisma.orderList.create({
-        data: {
-          orderId: id,
-        },
-        include: {
-          orderRows: {
-            include: {
-              product: true,
-            },
-          },
-        },
-      });
+  useEffect(() => {
+    async function loadData() {
+      setIsLoading(true);
+      const resolvedParams = await params;
+      const id = resolvedParams.id;
+      setOrderId(id);
+
+      // Fetch order with its order lists
+      const order = await db.getOrderById(id);
+      if (!order) {
+        console.error('Order not found:', id);
+        setError('Bestelling niet gevonden');
+        setIsLoading(false);
+        return;
+      }
+
+      const orderLists = await db.getOrderListsByOrderId(id);
+
+      // Get or create the current order list
+      let currentList = orderLists.find(ol => ol.id === orderListId);
+      
+      // If no orderListId provided or not found, use the first one or create one
+      if (!currentList) {
+        if (orderLists.length > 0) {
+          currentList = orderLists[0];
+        } else {
+          // Create a new order list if none exist
+          currentList = await db.createOrderList({ orderId: id });
+        }
+      }
+
+      setCurrentOrderList(currentList);
+
+      // Fetch all products
+      const products = await db.getAllProducts();
+
+      // Create a map of productId -> quantity from existing orderRows in current order list
+      const quantities: Record<string, number> = {};
+      if (currentList) {
+        const orderRows = await db.getOrderRowsByOrderListId(currentList.id);
+        orderRows.forEach(orderRow => {
+          quantities[orderRow.productId] = orderRow.quantity;
+        });
+      }
+      setInitialQuantities(quantities);
+
+      // Group products by category
+      const grouped = products.reduce((acc, product) => {
+        if (!acc[product.category]) {
+          acc[product.category] = [];
+        }
+        acc[product.category].push(product);
+        return acc;
+      }, {} as Record<ProductCategory, db.Product[]>);
+      setProductsByCategory(grouped);
+
+      // Check if this is the first and last order list
+      if (currentList) {
+        const sortedOrderLists = orderLists.sort((a, b) => 
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        );
+        setIsFirstOrderList(sortedOrderLists[0]?.id === currentList.id);
+        setIsLastOrderList(sortedOrderLists[sortedOrderLists.length - 1]?.id === currentList.id);
+      }
+
+      setIsLoading(false);
     }
+
+    loadData();
+  }, [params, orderListId, refreshTrigger]);
+
+  if (error) {
+    return (
+      <main className="flex min-h-screen flex-col items-center justify-center">
+        <div className="text-red-600 text-xl">{error}</div>
+        <a href="/" className="mt-4 px-6 py-2 bg-purple text-white rounded-md hover:bg-lila transition-colors">
+          Terug naar overzicht
+        </a>
+      </main>
+    );
   }
 
-  // Fetch all products
-  const products = await prisma.product.findMany({
-    orderBy: [
-      { category: 'asc' },
-    ],
-  });
-
-  // Create a map of productId -> quantity from existing orderRows in current order list
-  const initialQuantities: Record<string, number> = {};
-  if (currentOrderList) {
-    currentOrderList.orderRows.forEach(orderRow => {
-      initialQuantities[orderRow.productId] = orderRow.quantity;
-    });
+  if (isLoading || !currentOrderList || !orderId) {
+    return (
+      <main className="flex min-h-screen flex-col items-center justify-center">
+        <div className="text-purple">Laden...</div>
+      </main>
+    );
   }
-
-  // Group products by category
-  const productsByCategory = products.reduce((acc, product) => {
-    if (!acc[product.category]) {
-      acc[product.category] = [];
-    }
-    acc[product.category].push(product);
-    return acc;
-  }, {} as Record<ProductCategory, typeof products>);
-
-  // Check if this is the first and last order list
-  const [firstOrderList, lastOrderList] = await Promise.all([
-    isFirstOrderList(id, currentOrderList.id),
-    isLastOrderList(id, currentOrderList.id),
-  ]);
 
   return (
     <main className="flex min-h-screen flex-col items-center">
       <h1 className="text-4xl font-bold font-heading text-purple m-4 md:m-8">Nieuwe Bestelling</h1>
       
       <OrderPageClient
-        orderId={id}
+        orderId={orderId}
         orderListId={currentOrderList.id}
         initialQuantities={initialQuantities}
         productsByCategory={productsByCategory}
         categoryOrder={categoryOrder}
         categoryDisplayNames={categoryDisplayNames}
-        isFirstOrderList={firstOrderList}
-        isLastOrderList={lastOrderList}
+        isFirstOrderList={isFirstOrderList}
+        isLastOrderList={isLastOrderList}
+        onProductsChange={handleProductsChange}
       />
     </main>
   );
