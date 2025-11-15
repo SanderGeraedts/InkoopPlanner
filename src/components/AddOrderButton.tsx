@@ -1,25 +1,27 @@
 'use client';
 
-import { createOrder } from '@/app/actions/order';
-import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { createOrder, generateId } from '@/src/db';
 
 export default function AddOrderButton() {
-  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
 
   const handleCreateOrder = async () => {
     setIsLoading(true);
     try {
-      const result = await createOrder();
-        setIsLoading(false);
-      if (result.success && result.orderId) {
-        router.push(`/bestellingen/${result.orderId}`);
-      } else {
-        console.error('Failed to create order');
-      }
+      const newOrder = await createOrder({
+        id: generateId(),
+        date: new Date(),
+      });
+      
+      // Navigate to the new order's page
+      router.push(`/bestellingen/${newOrder.id}`);
+      setIsLoading(false);
     } catch (error) {
-      console.error('Error creating order:', error);
+      console.error('Failed to create order:', error);
+      setIsLoading(false);
     }
   };
 

@@ -1,43 +1,39 @@
-import { prisma } from '@/lib/prisma';
+'use client';
+
 import Link from 'next/link';
-import DeleteOrderButton from './components/DeleteOrderButton';
+import { formatDate } from '@/src/utils';
+import { useEffect, useState } from 'react';
+import { getAllOrders } from '@/src/db';
+import type { Order } from '@/src/types';
+import DeleteOrderButton from '@/src/components/DeleteOrderButton';
 
-function formatDate(date: Date | string): string {
-  const dateObj = typeof date === 'string' ? new Date(date) : date;
-  const days = ['zondag', 'maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag'];
-  const months = ['januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus', 'september', 'oktober', 'november', 'december'];
-  const dayName = days[dateObj.getDay()];
-  const day = String(dateObj.getDate()).padStart(2, '0');
-  const monthName = months[dateObj.getMonth()];
-  const year = String(dateObj.getFullYear()).slice(-2);
-  return `${dayName} ${day} ${monthName} '${year}`;
-}
+export default function Home() {
+  const [orders, setOrders] = useState<Order[]>([]);
+  
 
-export default async function Home() {
-  const [orders] = await Promise.all([
-    prisma.order.findMany({
-      orderBy: {
-        date: 'desc',
-      },
-      include: {
-        orderLists: {
-          include: {
-            orderRows: true,
-          },
-        },
-      },
-    }),
-  ]);
+  useEffect(() => {
+    async function loadOrders() {
+      const allOrders = await getAllOrders();
+      setOrders(allOrders);
+    }
+    loadOrders();
+  }, []);
 
-  const dbContent = {
-    orders
+  const handleOrderDeleted = () => {
+    // Reload orders after deletion
+    async function reloadOrders() {
+      const allOrders = await getAllOrders();
+      setOrders(allOrders);
+    }
+    reloadOrders();
   };
 
   return (
-    <main className="flex flex-col items-center p-8">
+    <main className="flex flex-col items-center">
       <h1 className="text-4xl font-bold font-heading text-purple mb-8">Bestellingen</h1>
       
-      <div className="w-full max-w-4xl space-y-4">
+      <div className="w-full space-y-4">
+
         {orders.length === 0 ? (
           <p className="text-lg text-center text-foreground/60">Geen bestellingen gevonden</p>
         ) : (
@@ -46,21 +42,23 @@ export default async function Home() {
               key={order.id}
               className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow flex items-center justify-between p-6 gap-4"
             >
+              <div className="flex items-center gap-3 flex-1">
+                <Link
+                  href={`/bestellingen/${order.id}`}
+                  className="flex-1 cursor-pointer"
+                >
+                  <h2 className="text-xl font-bold font-heading text-purple">
+                    Bestelling van {formatDate(order.date)}
+                  </h2>
+                </Link>
+                <DeleteOrderButton orderId={order.id} onDeleted={handleOrderDeleted} />
+              </div>
               <Link
                 href={`/bestellingen/${order.id}`}
-                className="flex-1 cursor-pointer"
-              >
-                <h2 className="text-xl font-bold font-heading text-purple">
-                  Bestelling van {formatDate(order.date)}
-                </h2>
-              </Link>
-              <Link
-                href={`/bestellingen/${order.id}/overzicht`}
                 className="px-4 py-2 bg-purple text-white rounded-md hover:bg-lila transition-colors"
               >
-                Overzicht
+                Details
               </Link>
-              <DeleteOrderButton orderId={order.id} />
             </div>
           ))
         )}
