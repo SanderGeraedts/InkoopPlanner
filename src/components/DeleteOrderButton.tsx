@@ -1,36 +1,29 @@
 'use client';
 
-import { deleteOrder } from '@/app/actions/order';
-import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { deleteOrder } from '@/src/db';
 
 interface DeleteOrderButtonProps {
   orderId: string;
+  onDeleted?: () => void;
 }
 
-export default function DeleteOrderButton({ orderId }: DeleteOrderButtonProps) {
-  const router = useRouter();
+export default function DeleteOrderButton({ orderId, onDeleted }: DeleteOrderButtonProps) {
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const handleDelete = async (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
+  const handleDelete = async () => {
     if (!confirm('Weet je zeker dat je deze bestelling wilt verwijderen?')) {
       return;
     }
 
     setIsDeleting(true);
     try {
-      const result = await deleteOrder(orderId);
-      if (result.success) {
-        router.refresh();
-      } else {
-        console.error('Failed to delete order');
-        setIsDeleting(false);
+      await deleteOrder(orderId);
+      if (onDeleted) {
+        onDeleted();
       }
     } catch (error) {
-      console.error('Error deleting order:', error);
+      console.error('Failed to delete order:', error);
       setIsDeleting(false);
     }
   };
@@ -39,9 +32,9 @@ export default function DeleteOrderButton({ orderId }: DeleteOrderButtonProps) {
     <button
       onClick={handleDelete}
       disabled={isDeleting}
-      className="ml-auto p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      className="p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       aria-label="Bestelling verwijderen"
-      title="Verwijder bestelling"
+      title="Bestelling verwijderen"
     >
       {isDeleting ? (
         <svg
@@ -82,4 +75,3 @@ export default function DeleteOrderButton({ orderId }: DeleteOrderButtonProps) {
     </button>
   );
 }
-
