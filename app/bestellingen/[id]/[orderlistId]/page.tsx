@@ -12,6 +12,7 @@ import {
   generateId 
 } from '@/src/db';
 import type { Product, OrderList, OrderRow, ProductCategory } from '@/src/types';
+import { productOrder } from '@/src/utils';
 
 // Map category enum to display names
 const categoryDisplayNames: Record<ProductCategory, string> = {
@@ -177,6 +178,29 @@ export default function OrderListPage() {
     acc[product.category].push(product);
     return acc;
   }, {} as Record<ProductCategory, Product[]>);
+
+  // Sort products within each category according to productOrder
+  Object.keys(productsByCategory).forEach((category) => {
+    const cat = category as ProductCategory;
+    const order = productOrder[cat] || [];
+    
+    productsByCategory[cat] = productsByCategory[cat].sort((a, b) => {
+      const indexA = order.indexOf(a.name);
+      const indexB = order.indexOf(b.name);
+      
+      // If both products are in the order list, sort by their position
+      if (indexA !== -1 && indexB !== -1) {
+        return indexA - indexB;
+      }
+      
+      // If only one is in the order list, prioritize it
+      if (indexA !== -1) return -1;
+      if (indexB !== -1) return 1;
+      
+      // If neither is in the order list, sort alphabetically
+      return a.name.localeCompare(b.name);
+    });
+  });
 
   return (
     <main className="flex flex-col items-center">
