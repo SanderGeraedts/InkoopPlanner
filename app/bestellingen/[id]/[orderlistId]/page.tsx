@@ -9,10 +9,12 @@ import {
   updateOrderRow, 
   deleteOrderRow,
   createOrderList,
+  createProduct,
   generateId 
 } from '@/src/db';
 import type { Product, OrderList, OrderRow, ProductCategory } from '@/src/types';
 import { productOrder } from '@/src/utils';
+import Accordion from '@/src/components/Accordion';
 
 // Map category enum to display names
 const categoryDisplayNames: Record<ProductCategory, string> = {
@@ -47,6 +49,8 @@ export default function OrderListPage() {
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isCreatingNew, setIsCreatingNew] = useState(false);
+  const [newProductName, setNewProductName] = useState('');
+  const [isNewOrderList, setIsNewOrderList] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -66,6 +70,9 @@ export default function OrderListPage() {
           initialQuantities[row.product.id] = row.quantity;
         });
         setQuantities(initialQuantities);
+        
+        // Determine if this is a new order list (no order rows yet)
+        setIsNewOrderList(orderListData.orderRows.length === 0);
       }
 
       setProducts(allProducts);
@@ -132,6 +139,51 @@ export default function OrderListPage() {
           orderRows: [...prev.orderRows, newRow],
         };
       });
+    }
+  };
+
+  const handleAddCustomProduct = async () => {
+    if (!newProductName.trim()) return;
+
+    try {
+      // Create a new product in the Extra's category
+      const newProduct: Product = {
+        id: generateId(),
+        name: newProductName.trim(),
+        category: "Extra's",
+      };
+
+      // Add product to database
+      await createProduct(newProduct);
+
+      // Add to local products state
+      setProducts(prev => [...prev, newProduct]);
+
+      // Create order row with quantity 1
+      const newRow = await createOrderRow(orderListId, {
+        product: newProduct,
+        quantity: 1,
+      });
+
+      // Update local quantities
+      setQuantities(prev => ({
+        ...prev,
+        [newProduct.id]: 1,
+      }));
+
+      // Update order list
+      setOrderList(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          orderRows: [...prev.orderRows, newRow],
+        };
+      });
+
+      // Clear input
+      setNewProductName('');
+    } catch (error) {
+      console.error('Failed to add custom product:', error);
     }
   };
 
@@ -202,6 +254,11 @@ export default function OrderListPage() {
     });
   });
 
+  // Determine which categories have products in the order list
+  const categoriesWithProducts = new Set(
+    orderList?.orderRows.map(row => row.product.category) || []
+  );
+
   return (
     <main className="flex flex-col items-center">
       <h1 className="text-4xl font-bold font-heading text-purple mb-8">Bestellijst</h1>
@@ -210,16 +267,22 @@ export default function OrderListPage() {
         {categoryOrder.map(category => {
           const categoryProducts = productsByCategory[category] || [];
           
+          // Skip Extra's here, we'll handle it separately below
+          if (category === "Extra's") return null;
+          
           if (categoryProducts.length === 0) return null;
 
+          // Determine if accordion should be open by default
+          const shouldBeOpen = isNewOrderList || categoriesWithProducts.has(category);
+
           return (
-            <div key={category} className="bg-white rounded-lg shadow-md overflow-hidden">
-              <div className="px-6 py-4 bg-purple">
-                <h2 className="text-2xl font-bold font-heading text-white">
-                  {categoryDisplayNames[category]}
-                </h2>
-              </div>
-              <div className="px-6 py-4">
+            <Accordion
+              key={category}
+              title={categoryDisplayNames[category]}
+              defaultOpen={shouldBeOpen}
+              variant="primary"
+            >
+              <div className="mt-4">
                 <ul className="space-y-3">
                   {categoryProducts.map(product => {
                     const quantity = quantities[product.id] || 0;
@@ -263,9 +326,86 @@ export default function OrderListPage() {
                   })}
                 </ul>
               </div>
-            </div>
+            </Accordion>
           );
         })}
+
+        {/* Extra's Category with Custom Products */}
+        <Accordion
+          title={categoryDisplayNames["Extra's"]}
+          defaultOpen={isNewOrderList || categoriesWithProducts.has("Extra's")}
+          variant="primary"
+        >
+          <div className="space-y-4 mt-4">
+            {/* Show existing Extra's products for this order list */}
+            {orderList.orderRows
+              .filter(row => row.product.category === "Extra's")
+              .map(row => {
+                const quantity = quantities[row.product.id] || 0;
+                return (
+                  <div
+                    key={row.product.id}
+                    className="flex items-center justify-between py-3 border-b border-gray-200"
+                  >
+                    <span className="text-foreground font-medium flex-1">
+                      {row.product.name}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleQuantityChange(row.product.id, Math.max(0, quantity - 1))}
+                        className="w-10 h-10 flex items-center justify-center bg-beige hover:bg-orange text-purple font-bold rounded-md transition-colors text-2xl"
+                        aria-label="Verminderen"
+                      >
+                        −
+                      </button>
+                      <input
+                        type="number"
+                        min="0"
+                        value={quantity}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value) || 0;
+                          handleQuantityChange(row.product.id, Math.max(0, val));
+                        }}
+                        className="w-20 h-10 text-center border-2 border-gray-300 rounded-md focus:border-purple focus:outline-none font-bold text-lg"
+                      />
+                      <button
+                        onClick={() => handleQuantityChange(row.product.id, quantity + 1)}
+                        className="w-10 h-10 flex items-center justify-center bg-beige hover:bg-orange text-purple font-bold rounded-md transition-colors text-2xl"
+                        aria-label="Verhogen"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+
+            {/* Add new custom product */}
+            <div className="pt-4 border-t border-gray-200">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newProductName}
+                  onChange={(e) => setNewProductName(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      handleAddCustomProduct();
+                    }
+                  }}
+                  placeholder="Nieuw product toevoegen..."
+                  className="flex-1 px-4 py-2 border-2 border-gray-300 rounded-md focus:border-purple focus:outline-none"
+                />
+                <button
+                  onClick={handleAddCustomProduct}
+                  disabled={!newProductName.trim()}
+                  className="px-6 py-2 bg-purple text-white rounded-md hover:bg-lila transition-colors font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Toevoegen
+                </button>
+              </div>
+            </div>
+          </div>
+        </Accordion>
       </div>
 
       <div className="w-full mt-8 flex gap-4 justify-center">
