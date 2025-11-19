@@ -2,29 +2,7 @@
 
 import { OrderRow, ProductCategory } from '@/src/types';
 import Accordion from './Accordion';
-import { productOrder } from '@/src/utils';
-
-// Map category enum to display names
-const categoryDisplayNames: Record<ProductCategory, string> = {
-  'Drinken': 'Drinken',
-  'Brood en Beleg': 'Brood en Beleg',
-  'Tussendoor': 'Tussendoor',
-  'Aanvullend beperkt': 'Aanvullend beperkt',
-  'Groenten en Fruit': 'Groenten en Fruit',
-  'Overigen producten': 'Overigen producten',
-  "Extra's": "Extra's",
-};
-
-// Define category order
-const categoryOrder: ProductCategory[] = [
-  'Drinken',
-  'Brood en Beleg',
-  'Tussendoor',
-  'Aanvullend beperkt',
-  'Groenten en Fruit',
-  'Overigen producten',
-  "Extra's",
-];
+import { productOrder, categoryDisplayNames, categoryOrder } from '@/src/utils';
 
 export default function OrderRowsSummary({ orderRows }: { orderRows: OrderRow[] }) {
   // Group order rows by category

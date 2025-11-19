@@ -13,30 +13,8 @@ import {
   generateId 
 } from '@/src/db';
 import type { Product, OrderList, OrderRow, ProductCategory } from '@/src/types';
-import { productOrder } from '@/src/utils';
+import { productOrder, categoryDisplayNames, categoryOrder } from '@/src/utils';
 import Accordion from '@/src/components/Accordion';
-
-// Map category enum to display names
-const categoryDisplayNames: Record<ProductCategory, string> = {
-  'Drinken': 'Drinken',
-  'Brood en Beleg': 'Brood en Beleg',
-  'Tussendoor': 'Tussendoor',
-  'Aanvullend beperkt': 'Aanvullend beperkt',
-  'Groenten en Fruit': 'Groenten en Fruit',
-  'Overigen producten': 'Overigen producten',
-  "Extra's": "Extra's",
-};
-
-// Define category order
-const categoryOrder: ProductCategory[] = [
-  'Drinken',
-  'Brood en Beleg',
-  'Tussendoor',
-  'Aanvullend beperkt',
-  'Groenten en Fruit',
-  'Overigen producten',
-  "Extra's",
-];
 
 export default function OrderListPage() {
   const params = useParams();

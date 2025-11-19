@@ -111,9 +111,20 @@ export async function getAllOrders(): Promise<Order[]> {
   const db = await getDB();
   const orders = await db.getAll('orders');
   
-  // Fetch orderLists for each order
+  // Fetch orderLists and inStock for each order
   for (const order of orders) {
-    order.orderLists = await getOrderListsByOrderId(order.id);
+    const allOrderLists = await getOrderListsByOrderId(order.id);
+    
+    // Filter out inStock from orderLists
+    if (order.inStock) {
+      order.orderLists = allOrderLists.filter(ol => ol.id !== order.inStock?.id);
+      const inStock = await getOrderListById(order.inStock.id);
+      if (inStock) {
+        order.inStock = inStock;
+      }
+    } else {
+      order.orderLists = allOrderLists;
+    }
   }
   
   return orders;
@@ -124,7 +135,18 @@ export async function getOrderById(id: string): Promise<Order | undefined> {
   const order = await db.get('orders', id);
   
   if (order) {
-    order.orderLists = await getOrderListsByOrderId(id);
+    const allOrderLists = await getOrderListsByOrderId(id);
+    
+    // Filter out inStock from orderLists
+    if (order.inStock) {
+      order.orderLists = allOrderLists.filter(ol => ol.id !== order.inStock?.id);
+      const inStock = await getOrderListById(order.inStock.id);
+      if (inStock) {
+        order.inStock = inStock;
+      }
+    } else {
+      order.orderLists = allOrderLists;
+    }
   }
   
   return order;
@@ -135,6 +157,7 @@ export async function createOrder(order: Omit<Order, 'orderLists'>): Promise<Ord
   const newOrder: Order = {
     ...order,
     orderLists: [],
+    inStock: order.inStock,
   };
   await db.add('orders', newOrder);
   return newOrder;

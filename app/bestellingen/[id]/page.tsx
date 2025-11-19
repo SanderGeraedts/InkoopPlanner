@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { getOrderById, createOrderList, generateId } from '@/src/db';
-import { getAllOrderRows } from '@/src/utils';
-import { Order, OrderRow, OrderList } from '@/src/types';
+import { getAllOrderRows, getAllOrderRowsWithStock } from '@/src/utils';
+import { Order, OrderRow } from '@/src/types';
 import OrderRowsSummary from '@/src/components/OrderRowsSummary';
+import InStock from '@/src/components/InStock';
 import Accordion from '@/src/components/Accordion';
 import Link from 'next/link';
 
@@ -16,6 +17,7 @@ export default function OrderPage() {
   
   const [order, setOrder] = useState<Order | null>(null);
   const [aggregatedRows, setAggregatedRows] = useState<OrderRow[]>([]);
+  const [adjustedRows, setAdjustedRows] = useState<OrderRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreatingNew, setIsCreatingNew] = useState(false);
 
@@ -29,6 +31,9 @@ export default function OrderPage() {
         // Get aggregated order rows across all order lists
         const allRows = getAllOrderRows(orderData);
         setAggregatedRows(allRows);
+        // Get adjusted rows with inStock subtracted
+        const adjusted = getAllOrderRowsWithStock(orderData);
+        setAdjustedRows(adjusted);
       }
       
       setIsLoading(false);
@@ -36,6 +41,18 @@ export default function OrderPage() {
 
     loadOrder();
   }, [orderId]);
+
+  const handleInStockUpdate = async () => {
+    // Reload order data when inStock is updated
+    const orderData = await getOrderById(orderId);
+    if (orderData) {
+      setOrder(orderData);
+      const allRows = getAllOrderRows(orderData);
+      setAggregatedRows(allRows);
+      const adjusted = getAllOrderRowsWithStock(orderData);
+      setAdjustedRows(adjusted);
+    }
+  };
 
   const handleCreateNewOrderList = async () => {
     setIsCreatingNew(true);
@@ -82,8 +99,21 @@ export default function OrderPage() {
       <div className="w-full space-y-6">
         
       <h2 className="text-3xl font-bold font-heading text-purple">Samenvatting</h2>
-        {/* Aggregated Summary */}
-        <OrderRowsSummary orderRows={aggregatedRows} />
+        {/* Aggregated Summary with inStock subtracted */}
+        <OrderRowsSummary orderRows={adjustedRows} />
+
+        {/* InStock Component */}
+        {aggregatedRows.length > 0 && (
+          <div className="mt-8">
+            <InStock 
+              orderId={orderId}
+              allOrderProducts={aggregatedRows}
+              inStockRows={order.inStock?.orderRows || []}
+              inStockOrderListId={order.inStock?.id}
+              onUpdate={handleInStockUpdate}
+            />
+          </div>
+        )}
 
         {/* Individual Order Lists */}
         <div className="mt-8">

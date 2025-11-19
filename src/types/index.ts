@@ -10,6 +10,7 @@ type Order = {
     id: string;
     date: Date;
     orderLists: OrderList[];
+    inStock?: OrderList;
 };
 
 type OrderRow = {

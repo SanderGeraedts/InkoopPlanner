@@ -88,6 +88,28 @@ export const productOrder: Record<ProductCategory, string[]> = {
   "Extra's": [],
 };
 
+// Map category enum to display names
+export const categoryDisplayNames: Record<ProductCategory, string> = {
+  'Drinken': 'Drinken',
+  'Brood en Beleg': 'Brood en Beleg',
+  'Tussendoor': 'Tussendoor',
+  'Aanvullend beperkt': 'Aanvullend beperkt',
+  'Groenten en Fruit': 'Groenten en Fruit',
+  'Overigen producten': 'Overigen producten',
+  "Extra's": "Extra's",
+};
+
+// Define category order
+export const categoryOrder: ProductCategory[] = [
+  'Drinken',
+  'Brood en Beleg',
+  'Tussendoor',
+  'Aanvullend beperkt',
+  'Groenten en Fruit',
+  'Overigen producten',
+  "Extra's",
+];
+
 export const formatDate = (date: Date | string): string => {
   const dateObj = typeof date === 'string' ? new Date(date) : date;
   const dayName = days[dateObj.getDay()];
@@ -124,4 +146,32 @@ export const getAllOrderRows = (order: Order): OrderRow[] => {
 
   // Convert map values to array
   return Array.from(productMap.values());
+}
+
+// Get all OrderRows from an Order with inStock quantities subtracted
+export const getAllOrderRowsWithStock = (order: Order): OrderRow[] => {
+  // Get all order rows aggregated
+  const allRows = getAllOrderRows(order);
+  
+  // If no inStock, return all rows as is
+  if (!order.inStock || !order.inStock.orderRows) {
+    return allRows;
+  }
+  
+  // Create a map of inStock quantities by product ID
+  const inStockMap = new Map<string, number>();
+  order.inStock.orderRows.forEach(row => {
+    inStockMap.set(row.product.id, row.quantity);
+  });
+  
+  // Subtract inStock quantities from all rows
+  return allRows.map(row => {
+    const inStockQty = inStockMap.get(row.product.id) || 0;
+    const adjustedQuantity = Math.max(0, row.quantity - inStockQty);
+    
+    return {
+      ...row,
+      quantity: adjustedQuantity,
+    };
+  }).filter(row => row.quantity > 0); // Only return rows with quantity > 0
 }
