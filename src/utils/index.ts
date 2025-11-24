@@ -3,8 +3,8 @@ import { Order, OrderRow, ProductCategory } from '@/src/types';
 export const days = ['zondag', 'maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag'];
 export const months = ['januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus', 'september', 'oktober', 'november', 'december'];
 
-// Map products to their list types (Dagopvang and/or BSO)
-export const productListTypes: Record<string, ('Dagopvang' | 'BSO')[]> = {
+// Map products to their list types (Dagopvang, BSO, and/or Stock)
+export const productListTypes: Record<string, ('Dagopvang' | 'BSO' | 'Stock')[]> = {
   // Drinken - Common to both
   'Jumbo Halfvolle melk 1 liter': ['Dagopvang', 'BSO'],
   'Jumbo Karnemelk 1 liter': ['Dagopvang', 'BSO'],

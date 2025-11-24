@@ -217,6 +217,9 @@ export default function OrderListPage() {
       // Always allow Extra's category
       if (product.category === "Extra's") return true;
       
+      // Stock lists show all products (no filtering)
+      if (orderList?.listType === 'Stock') return true;
+      
       // Check if product is allowed for this list type
       const allowedListTypes = productListTypes[product.name];
       if (!allowedListTypes) return true; // If not in map, allow it
