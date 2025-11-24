@@ -24,7 +24,7 @@ type OrderList = {
     orderId: string;
     createdAt: Date;
     orderRows: OrderRow[];
-    listType: "Dagopvang" | "BSO"
+    listType: "Dagopvang" | "BSO" | "Stock"
 };
 
 export type { Product, Order, OrderRow, OrderList, ProductCategory };

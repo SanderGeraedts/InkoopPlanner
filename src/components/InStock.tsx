@@ -45,6 +45,7 @@ export default function InStock({ orderId, allOrderProducts, inStockRows, inStoc
         id: generateId(),
         orderId: orderId,
         createdAt: new Date(),
+        listType: 'Stock',
       });
 
       // Update the order to reference this inStock list
