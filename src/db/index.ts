@@ -210,6 +210,7 @@ export async function createOrderList(orderList: Omit<OrderList, 'orderRows'>): 
   const newOrderList: OrderList = {
     ...orderList,
     orderRows: [],
+    listType: orderList.listType,
   };
   await db.add('orderLists', newOrderList);
   return newOrderList;

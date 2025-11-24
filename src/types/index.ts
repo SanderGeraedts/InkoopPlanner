@@ -1,4 +1,4 @@
-type ProductCategory = "Drinken" | "Brood en Beleg" | "Tussendoor" | "Aanvullend beperkt" | "Groenten en Fruit" | "Overigen producten" | "Extra's";
+type ProductCategory = "Drinken" | "Brood" | "Beleg" | "Tussendoor" | "Groente en Overige" | "Diepvries fruit en Ijs" | "Thee" | "Producten buiten voedingsbeleid" | "Extra's";
 
 type Product = {
   id: string;
@@ -24,6 +24,7 @@ type OrderList = {
     orderId: string;
     createdAt: Date;
     orderRows: OrderRow[];
+    listType: "Dagopvang" | "BSO"
 };
 
 export type { Product, Order, OrderRow, OrderList, ProductCategory };

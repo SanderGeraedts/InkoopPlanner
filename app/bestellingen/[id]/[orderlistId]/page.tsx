@@ -13,7 +13,7 @@ import {
   generateId 
 } from '@/src/db';
 import type { Product, OrderList, OrderRow, ProductCategory } from '@/src/types';
-import { productOrder, categoryDisplayNames, categoryOrder } from '@/src/utils';
+import { productOrder, categoryDisplayNames, categoryOrder, productListTypes } from '@/src/utils';
 import Accordion from '@/src/components/Accordion';
 
 export default function OrderListPage() {
@@ -165,13 +165,14 @@ export default function OrderListPage() {
     }
   };
 
-  const handleNewOrderList = async () => {
+  const handleNewOrderList = async (listType: 'Dagopvang' | 'BSO') => {
     setIsCreatingNew(true);
     try {
       const newOrderList = await createOrderList({
         id: generateId(),
         orderId,
         createdAt: new Date(),
+        listType,
       });
       router.push(`/bestellingen/${orderId}/${newOrderList.id}`);
     } catch (error) {
@@ -209,12 +210,32 @@ export default function OrderListPage() {
     return acc;
   }, {} as Record<ProductCategory, Product[]>);
 
+  // Filter products based on listType
+  const filteredProductsByCategory = Object.keys(productsByCategory).reduce((acc, category) => {
+    const cat = category as ProductCategory;
+    const filtered = productsByCategory[cat].filter(product => {
+      // Always allow Extra's category
+      if (product.category === "Extra's") return true;
+      
+      // Check if product is allowed for this list type
+      const allowedListTypes = productListTypes[product.name];
+      if (!allowedListTypes) return true; // If not in map, allow it
+      
+      return allowedListTypes.includes(orderList?.listType || 'Dagopvang');
+    });
+    
+    if (filtered.length > 0) {
+      acc[cat] = filtered;
+    }
+    return acc;
+  }, {} as Record<ProductCategory, Product[]>);
+
   // Sort products within each category according to productOrder
-  Object.keys(productsByCategory).forEach((category) => {
+  Object.keys(filteredProductsByCategory).forEach((category) => {
     const cat = category as ProductCategory;
     const order = productOrder[cat] || [];
     
-    productsByCategory[cat] = productsByCategory[cat].sort((a, b) => {
+    filteredProductsByCategory[cat] = filteredProductsByCategory[cat].sort((a, b) => {
       const indexA = order.indexOf(a.name);
       const indexB = order.indexOf(b.name);
       
@@ -243,7 +264,7 @@ export default function OrderListPage() {
 
       <div className="w-full space-y-6">
         {categoryOrder.map(category => {
-          const categoryProducts = productsByCategory[category] || [];
+          const categoryProducts = filteredProductsByCategory[category] || [];
           
           // Skip Extra's here, we'll handle it separately below
           if (category === "Extra's") return null;
@@ -393,13 +414,22 @@ export default function OrderListPage() {
         >
           Afronden
         </button>
-        <button
-          onClick={handleNewOrderList}
-          disabled={isCreatingNew}
-          className="px-6 py-3 bg-purple text-white rounded-md hover:bg-lila transition-colors font-bold disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isCreatingNew ? 'Aanmaken...' : 'Nieuwe Bestellijst'}
-        </button>
+        <div className="flex flex-col gap-2">
+          <button
+            onClick={() => handleNewOrderList('Dagopvang')}
+            disabled={isCreatingNew}
+            className="px-6 py-3 bg-purple text-white rounded-md hover:bg-lila transition-colors font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isCreatingNew ? 'Aanmaken...' : 'Nieuwe Bestellijst (Dagopvang)'}
+          </button>
+          <button
+            onClick={() => handleNewOrderList('BSO')}
+            disabled={isCreatingNew}
+            className="px-6 py-3 bg-purple text-white rounded-md hover:bg-lila transition-colors font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isCreatingNew ? 'Aanmaken...' : 'Nieuwe Bestellijst (BSO)'}
+          </button>
+        </div>
       </div>
     </main>
   );

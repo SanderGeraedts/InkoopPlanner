@@ -54,13 +54,14 @@ export default function OrderPage() {
     }
   };
 
-  const handleCreateNewOrderList = async () => {
+  const handleCreateNewOrderList = async (listType: 'Dagopvang' | 'BSO') => {
     setIsCreatingNew(true);
     try {
       const newOrderList = await createOrderList({
         id: generateId(),
         orderId,
         createdAt: new Date(),
+        listType,
       });
       router.push(`/bestellingen/${orderId}/${newOrderList.id}`);
     } catch (error) {
@@ -144,13 +145,22 @@ export default function OrderPage() {
             </div>
           )}
 
-          <button
-            onClick={handleCreateNewOrderList}
-            disabled={isCreatingNew}
-            className="w-full mt-4 px-6 py-3 bg-purple text-white rounded-md hover:bg-lila transition-colors font-bold disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isCreatingNew ? 'Aanmaken...' : 'Nieuwe Bestellijst'}
-          </button>
+          <div className="flex flex-col gap-3 mt-4">
+            <button
+              onClick={() => handleCreateNewOrderList('Dagopvang')}
+              disabled={isCreatingNew}
+              className="w-full px-6 py-3 bg-purple text-white rounded-md hover:bg-lila transition-colors font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isCreatingNew ? 'Aanmaken...' : 'Nieuwe Bestellijst (Dagopvang)'}
+            </button>
+            <button
+              onClick={() => handleCreateNewOrderList('BSO')}
+              disabled={isCreatingNew}
+              className="w-full px-6 py-3 bg-purple text-white rounded-md hover:bg-lila transition-colors font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isCreatingNew ? 'Aanmaken...' : 'Nieuwe Bestellijst (BSO)'}
+            </button>
+          </div>
         </div>
 
         {/* Back Button */}
